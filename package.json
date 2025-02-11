@@ -15,14 +15,14 @@
   "files": [
     "dist"
   ],
-  "repository": "github:lucaslos/eslint-plugin-extended-lint",
+  "repository": "github:lucaslos/ai",
   "author": "Lucas Santos",
-  "main": "./dist/extended-lint.js",
-  "module": "./dist/extended-lint.mjs",
+  "main": "./dist/main.js",
+  "module": "./dist/main.mjs",
   "exports": {
     ".": {
-      "import": "./dist/extended-lint.mjs",
-      "require": "./dist/extended-lint.js"
+      "import": "./dist/main.mjs",
+      "require": "./dist/main.js"
     }
   },
   "engines": {
