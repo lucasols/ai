@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   typingTest,
   type TestTypeIsEqual,
@@ -19,7 +18,7 @@ describe('primitive schemas', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, string>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "type": "string",
       }
@@ -33,7 +32,7 @@ describe('primitive schemas', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, number>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "type": "number",
       }
@@ -47,7 +46,7 @@ describe('primitive schemas', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, boolean>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "type": "boolean",
       }
@@ -61,7 +60,7 @@ describe('primitive schemas', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, null>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "type": "null",
       }
@@ -75,7 +74,7 @@ describe('primitive schemas', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, number>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "type": "integer",
       }
@@ -95,7 +94,7 @@ test('object schema', () => {
     TestTypeIsEqual<InferredType, { name: string; age: number }>
   >();
 
-  expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
     {
       "properties": {
         "age": {
@@ -122,7 +121,7 @@ describe('array schema', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, string[]>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "items": {
           "type": "string",
@@ -141,7 +140,7 @@ describe('array schema', () => {
       TestTypeIsEqual<InferredSchema, { name: string; age: number }[]>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "items": {
           "properties": {
@@ -171,7 +170,7 @@ test('union schema', () => {
 
   typingTest.expectType<TestTypeIsEqual<InferredType, string | number>>();
 
-  expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
     {
       "anyOf": [
         {
@@ -195,7 +194,7 @@ describe('primitive union schema', () => {
       TestTypeIsEqual<InferredType, string | number | boolean>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "type": [
           "string",
@@ -216,7 +215,7 @@ describe('primitive union schema', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, string | number>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "description": "Primitive union schema",
         "type": [
@@ -229,7 +228,7 @@ describe('primitive union schema', () => {
 });
 
 test('.describe()', () => {
-  const schema = s.generate({
+  const schema = s.getSchema({
     name: s.string.describe('String property'),
     age: s.number.describe('Number property'),
   });
@@ -281,7 +280,7 @@ describe('orNull schema', () => {
       >
     >();
 
-    expect(object.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(object).jsonSchema).toMatchInlineSnapshot(`
       {
         "properties": {
           "boolean": {
@@ -338,7 +337,7 @@ describe('orNull schema', () => {
   test('with description', () => {
     const schema = s.string.orNull().describe('String property');
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "description": "String property",
         "type": [
@@ -358,7 +357,7 @@ describe('enum schema', () => {
       TestTypeIsEqual<AiSchemaInferType<typeof schema>, 'foo' | 'bar'>
     >();
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "enum": [
           "foo",
@@ -371,7 +370,7 @@ describe('enum schema', () => {
 });
 
 test('generate schema', () => {
-  const schema = s.generate({
+  const schema = s.getSchema({
     name: s.string,
   });
 
@@ -391,25 +390,24 @@ test('generate schema', () => {
   );
 });
 
-describe('Additional tests', () => {
-  test('generate single schema', () => {
-    const schema = s.generate(s.boolean.describe('A boolean schema'));
+test('generate single schema', () => {
+  const schema = s.getSchema(s.boolean.describe('A boolean schema'));
 
-    expect(schema).toEqual(
-      jsonSchema({
-        type: 'boolean',
-        description: 'A boolean schema',
-      }),
-    );
-  });
+  expect(schema).toEqual(
+    jsonSchema({
+      type: 'boolean',
+      description: 'A boolean schema',
+    }),
+  );
+});
 
-  test('nullable enum schema', () => {
-    const schema = s.string
-      .enum('red', 'blue')
-      .orNull()
-      .describe('Nullable color enum');
+test('nullable enum schema', () => {
+  const schema = s.string
+    .enum('red', 'blue')
+    .orNull()
+    .describe('Nullable color enum');
 
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "description": "Nullable color enum",
         "enum": [
@@ -422,31 +420,31 @@ describe('Additional tests', () => {
         ],
       }
     `);
+});
+
+test('nested and complex schema', () => {
+  const schema = s.object({
+    list: s.array(s.union(s.string, s.number).describe('string or number')),
+    details: s
+      .object({
+        flag: s.boolean.orNull().describe('nullable boolean'),
+        value: s.number,
+      })
+      .describe('details object'),
   });
 
-  test('nested and complex schema', () => {
-    const schema = s.object({
-      list: s.array(s.union(s.string, s.number).describe('string or number')),
-      details: s
-        .object({
-          flag: s.boolean.orNull().describe('nullable boolean'),
-          value: s.number,
-        })
-        .describe('details object'),
-    });
+  type InferredType = AiSchemaInferType<typeof schema>;
+  typingTest.expectType<
+    TestTypeIsEqual<
+      InferredType,
+      {
+        list: (string | number)[];
+        details: { flag: boolean | null; value: number };
+      }
+    >
+  >();
 
-    type InferredType = AiSchemaInferType<typeof schema>;
-    typingTest.expectType<
-      TestTypeIsEqual<
-        InferredType,
-        {
-          list: (string | number)[];
-          details: { flag: boolean | null; value: number };
-        }
-      >
-    >();
-
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "properties": {
           "details": {
@@ -491,11 +489,11 @@ describe('Additional tests', () => {
         "type": "object",
       }
     `);
-  });
+});
 
-  test('array schema with description', () => {
-    const schema = s.array(s.number).describe('Array of numbers');
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+test('array schema with description', () => {
+  const schema = s.array(s.number).describe('Array of numbers');
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "description": "Array of numbers",
         "items": {
@@ -504,11 +502,11 @@ describe('Additional tests', () => {
         "type": "array",
       }
     `);
-  });
+});
 
-  test('number enum schema', () => {
-    const schema = s.number.enum(1, 2, 3);
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+test('number enum schema', () => {
+  const schema = s.number.enum(1, 2, 3);
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "enum": [
           1,
@@ -518,11 +516,11 @@ describe('Additional tests', () => {
         "type": "number",
       }
     `);
-  });
+});
 
-  test('chaining orNull', () => {
-    const schema = s.string.orNull().orNull();
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+test('chaining orNull', () => {
+  const schema = s.string.orNull().orNull();
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "type": [
           "string",
@@ -530,11 +528,11 @@ describe('Additional tests', () => {
         ],
       }
     `);
-  });
+});
 
-  test('chained describe overrides', () => {
-    const schema = s.string.describe('First').orNull().describe('Second');
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+test('chained describe overrides', () => {
+  const schema = s.string.describe('First').orNull().describe('Second');
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "description": "Second",
         "type": [
@@ -543,23 +541,23 @@ describe('Additional tests', () => {
         ],
       }
     `);
-  });
+});
 
-  test('generate empty object schema', () => {
-    const schema = s.generate({});
-    expect(schema).toEqual(
-      jsonSchema({
-        type: 'object',
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      }),
-    );
-  });
+test('generate empty object schema', () => {
+  const schema = s.getSchema({});
+  expect(schema).toEqual(
+    jsonSchema({
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false,
+    }),
+  );
+});
 
-  test('union with enum child', () => {
-    const schema = s.union(s.string, s.number.enum(1, 2, 3));
-    expect(schema.toJSONSchema()).toMatchInlineSnapshot(`
+test('union with enum child', () => {
+  const schema = s.union(s.string, s.number.enum(1, 2, 3));
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "anyOf": [
           {
@@ -576,5 +574,102 @@ describe('Additional tests', () => {
         ],
       }
     `);
+});
+
+test('recursive schema', () => {
+  type LinkedListNode = { value: number; next: LinkedListNode };
+
+  const linkedListNode = s.recursion<LinkedListNode>('LinkedListNode', (self) =>
+    s.object({
+      value: s.number,
+      next: self,
+    }),
+  );
+
+  const linkedList = s.object({
+    linkedList: linkedListNode,
   });
+
+  type InferredType = AiSchemaInferType<typeof linkedList>;
+
+  typingTest.expectType<
+    TestTypeIsEqual<InferredType, { linkedList: LinkedListNode }>
+  >();
+
+  expect(s.getSchema(linkedList).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "$defs": {
+          "LinkedListNode": {
+            "properties": {
+              "next": {
+                "$ref": "#/$defs/LinkedListNode",
+              },
+              "value": {
+                "type": "number",
+              },
+            },
+            "required": [
+              "value",
+              "next",
+            ],
+            "type": "object",
+          },
+        },
+        "properties": {
+          "linkedList": {
+            "$ref": "#/$defs/LinkedListNode",
+          },
+        },
+        "required": [
+          "linkedList",
+        ],
+        "type": "object",
+      }
+    `);
+});
+
+test('as ref', () => {
+  const refSchema = s
+    .object({
+      name: s.string,
+    })
+    .describe('Object schema')
+    .asRef('Object');
+
+  const schema = s.object({
+    obj: refSchema,
+    obj2: refSchema,
+  });
+
+  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+    {
+      "$defs": {
+        "Object": {
+          "description": "Object schema",
+          "properties": {
+            "name": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "name",
+          ],
+          "type": "object",
+        },
+      },
+      "properties": {
+        "obj": {
+          "$ref": "#/$defs/Object",
+        },
+        "obj2": {
+          "$ref": "#/$defs/Object",
+        },
+      },
+      "required": [
+        "obj",
+        "obj2",
+      ],
+      "type": "object",
+    }
+  `);
 });

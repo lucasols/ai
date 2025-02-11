@@ -1,5 +1,9 @@
 import { jsonSchema } from 'ai';
-import type { JSONSchema7, JSONSchema7TypeName } from 'json-schema';
+import type {
+  JSONSchema7,
+  JSONSchema7Definition,
+  JSONSchema7TypeName,
+} from 'json-schema';
 
 type Schema<T> = (t: T) => T;
 
@@ -24,12 +28,15 @@ export type AiSchema<
   } = {},
 > = {
   '~ai_type': Schema<T>;
-  toJSONSchema: () => JSONSchema7;
+  toJSONSchema: (ctx: {
+    defs: Record<string, JSONSchema7Definition>;
+  }) => JSONSchema7;
   describe: (description: string) => AiSchema<T, Flags>;
   orNull: () => AiSchema<T | null, Flags>;
   enum: Flags['enum'] extends true
     ? <V extends T>(...values: V[]) => AiSchema<V, Flags>
     : undefined;
+  asRef: (name: string) => AiSchema<T>;
 };
 
 type TypeOfObjectSchema<T extends Record<string, AiSchema<any, any>>> =
@@ -40,18 +47,20 @@ type TypeOfObjectSchema<T extends Record<string, AiSchema<any, any>>> =
 function object<T extends Record<string, AiSchema<any, any>>>(
   schema: T,
 ): AiSchema<TypeOfObjectSchema<T>> {
-  const properties: Record<string, JSONSchema7> = {};
-  const required: string[] = [];
-
-  for (const [key, value] of Object.entries(schema)) {
-    properties[key] = value.toJSONSchema();
-    required.push(key);
-  }
-
   return {
     ...genericSchema,
     enum: undefined,
-    toJSONSchema: () => ({ type: 'object', properties, required }),
+    toJSONSchema: (ctx) => {
+      const properties: Record<string, JSONSchema7> = {};
+      const required: string[] = [];
+
+      for (const [key, value] of Object.entries(schema)) {
+        properties[key] = value.toJSONSchema(ctx);
+        required.push(key);
+      }
+
+      return { type: 'object', properties, required };
+    },
   };
 }
 
@@ -59,7 +68,7 @@ function array<T>(schema: AiSchema<T, any>): AiSchema<T[]> {
   return {
     ...genericSchema,
     enum: undefined,
-    toJSONSchema: () => ({ type: 'array', items: schema.toJSONSchema() }),
+    toJSONSchema: (ctx) => ({ type: 'array', items: schema.toJSONSchema(ctx) }),
   };
 }
 
@@ -69,15 +78,15 @@ function describe(
 ): AiSchema<any, any> {
   return {
     ...this,
-    toJSONSchema: () => ({ ...this.toJSONSchema(), description }),
+    toJSONSchema: (ctx) => ({ ...this.toJSONSchema(ctx), description }),
   };
 }
 
 function orNull(this: AiSchema<any>): AiSchema<any> {
   return {
     ...this,
-    toJSONSchema: () => {
-      const schema = this.toJSONSchema();
+    toJSONSchema: (ctx) => {
+      const schema = this.toJSONSchema(ctx);
 
       const uniqueTypes = new Set<JSONSchema7TypeName>();
 
@@ -105,14 +114,27 @@ function enumSchema<T extends string | number | boolean | null>(
 ): AiSchema<T> {
   return {
     ...this,
-    toJSONSchema: () => {
-      const schema = this.toJSONSchema();
+    toJSONSchema: (ctx) => {
+      const schema = this.toJSONSchema(ctx);
 
       return {
         ...schema,
         type: schema.type,
         enum: values,
       };
+    },
+  };
+}
+
+function asRef(this: AiSchema<any>, name: string): AiSchema<any> {
+  return {
+    ...this,
+    toJSONSchema: (ctx) => {
+      const schema = this.toJSONSchema(ctx);
+
+      ctx.defs[name] = schema;
+
+      return { $ref: `#/$defs/${name}` };
     },
   };
 }
@@ -124,6 +146,7 @@ const genericSchema: Omit<
   '~ai_type': undefined as any,
   describe,
   orNull,
+  asRef,
 };
 
 const string: AiSchema<string, { enum: true }> = {
@@ -162,8 +185,8 @@ function union<T extends AiSchema<any, any>[]>(
   return {
     ...genericSchema,
     enum: undefined,
-    toJSONSchema: () => ({
-      anyOf: schemas.map((schema) => schema.toJSONSchema()),
+    toJSONSchema: (ctx) => ({
+      anyOf: schemas.map((schema) => schema.toJSONSchema(ctx)),
     }),
   };
 }
@@ -195,7 +218,11 @@ function isAiSchema(schema: unknown): schema is AiSchema<any, any> {
   return !!schema && typeof schema === 'object' && '~ai_type' in schema;
 }
 
-export function generate<
+function objectIsEmpty(obj: Record<string, unknown>): boolean {
+  return Object.keys(obj).length === 0;
+}
+
+export function getSchema<
   T extends AiSchema<any, any> | Record<string, AiSchema<any, any>>,
 >(
   schema: T,
@@ -206,24 +233,69 @@ export function generate<
     ? { [K in keyof T]: AiSchemaInferType<T[K]> }
     : never
 > {
+  const ctx: {
+    defs: Record<string, JSONSchema7Definition>;
+  } = {
+    defs: {},
+  };
+
   if (isAiSchema(schema)) {
-    return jsonSchema(schema.toJSONSchema());
+    const generatedSchema = schema.toJSONSchema(ctx);
+
+    if (!objectIsEmpty(ctx.defs)) {
+      generatedSchema.$defs = ctx.defs;
+    }
+
+    return jsonSchema(generatedSchema);
   }
 
   const properties: Record<string, JSONSchema7> = {};
   const required: string[] = [];
 
   for (const [key, value] of Object.entries(schema)) {
-    properties[key] = (value as AiSchema<any, any>).toJSONSchema();
+    properties[key] = (value as AiSchema<any, any>).toJSONSchema(ctx);
     required.push(key);
   }
 
-  return jsonSchema({
+  const generatedSchema: JSONSchema7 = {
     type: 'object',
     properties,
     required,
     additionalProperties: false,
-  });
+  };
+
+  if (!objectIsEmpty(ctx.defs)) {
+    generatedSchema.$defs = ctx.defs;
+  }
+
+  return jsonSchema(generatedSchema);
+}
+
+function ref<T>(name: string): AiSchema<T> {
+  return {
+    ...genericSchema,
+    enum: undefined,
+    toJSONSchema: () => ({ $ref: `#/$defs/${name}` }),
+  };
+}
+
+function recursion<T>(
+  name: string,
+  self: (self: AiSchema<T>) => AiSchema<T>,
+): AiSchema<T> {
+  return {
+    ...genericSchema,
+    enum: undefined,
+    toJSONSchema: (ctx) => {
+      const schema = self(ref(name)).toJSONSchema(ctx);
+
+      ctx.defs[name] = schema;
+
+      return {
+        $ref: `#/$defs/${name}`,
+      };
+    },
+  };
 }
 
 export const aiSchemas = {
@@ -232,8 +304,10 @@ export const aiSchemas = {
   array,
   number,
   boolean,
-  generate,
+  getSchema,
+  recursion,
   null: nullSchema,
+  ref,
   union,
   primitiveUnion,
   integer,
