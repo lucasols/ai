@@ -20,6 +20,10 @@ export type AiSchemaInferType<T extends AiSchema<any, any>> =
 
 type PrimitiveTypes = 'string' | 'number' | 'boolean' | 'integer' | 'null';
 
+type Ctx = {
+  defs: Record<string, JSONSchema7Definition>;
+};
+
 export type AiSchema<
   T,
   Flags extends {
@@ -28,9 +32,7 @@ export type AiSchema<
   } = {},
 > = {
   '~ai_type': Schema<T>;
-  toJSONSchema: (ctx: {
-    defs: Record<string, JSONSchema7Definition>;
-  }) => JSONSchema7;
+  toJSONSchema: (ctx: Ctx) => JSONSchema7;
   describe: (description: string) => AiSchema<T, Flags>;
   orNull: () => AiSchema<T | null, Flags>;
   enum: Flags['enum'] extends true
@@ -39,27 +41,47 @@ export type AiSchema<
   asRef: (name: string) => AiSchema<T>;
 };
 
-type TypeOfObjectSchema<T extends Record<string, AiSchema<any, any>>> =
-  T extends Record<string, AiSchema<any, any>>
-    ? { [K in keyof T]: AiSchemaInferType<T[K]> }
-    : never;
+type ObjectSchema = {
+  [key: string]: AiSchema<any, any> | ObjectSchema;
+};
 
-function object<T extends Record<string, AiSchema<any, any>>>(
+type TypeOfObjectSchema<T extends ObjectSchema> = T extends ObjectSchema
+  ? {
+      [K in keyof T]: T[K] extends AiSchema<infer U, any>
+        ? U
+        : T[K] extends ObjectSchema
+        ? TypeOfObjectSchema<T[K]>
+        : never;
+    }
+  : never;
+
+function object<T extends ObjectSchema>(
   schema: T,
 ): AiSchema<TypeOfObjectSchema<T>> {
+  function childrenToJsonSchema(
+    jSchema: AiSchema<any, any> | ObjectSchema,
+    ctx: Ctx,
+  ): JSONSchema7 {
+    if (isAiSchema(jSchema)) {
+      return jSchema.toJSONSchema(ctx);
+    }
+
+    const properties: Record<string, JSONSchema7> = {};
+    const required: string[] = [];
+
+    for (const [key, value] of Object.entries(jSchema)) {
+      properties[key] = childrenToJsonSchema(value, ctx);
+      required.push(key);
+    }
+
+    return { type: 'object', properties, required };
+  }
+
   return {
     ...genericSchema,
     enum: undefined,
     toJSONSchema: (ctx) => {
-      const properties: Record<string, JSONSchema7> = {};
-      const required: string[] = [];
-
-      for (const [key, value] of Object.entries(schema)) {
-        properties[key] = value.toJSONSchema(ctx);
-        required.push(key);
-      }
-
-      return { type: 'object', properties, required };
+      return childrenToJsonSchema(schema, ctx);
     },
   };
 }

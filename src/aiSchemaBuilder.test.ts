@@ -82,35 +82,86 @@ describe('primitive schemas', () => {
   });
 });
 
-test('object schema', () => {
-  const schema = s.object({
-    name: s.string,
-    age: s.number,
+describe('object schema', () => {
+  test('object schema', () => {
+    const schema = s.object({
+      name: s.string,
+      age: s.number,
+    });
+
+    type InferredType = AiSchemaInferType<typeof schema>;
+
+    typingTest.expectType<
+      TestTypeIsEqual<InferredType, { name: string; age: number }>
+    >();
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "age": {
+            "type": "number",
+          },
+          "name": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+          "age",
+        ],
+        "type": "object",
+      }
+    `);
   });
 
-  type InferredType = AiSchemaInferType<typeof schema>;
-
-  typingTest.expectType<
-    TestTypeIsEqual<InferredType, { name: string; age: number }>
-  >();
-
-  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
-    {
-      "properties": {
-        "age": {
-          "type": "number",
-        },
-        "name": {
-          "type": "string",
-        },
+  test('nested object', () => {
+    const schema = s.object({
+      name: s.string,
+      age: s.number,
+      address: {
+        street: s.string,
       },
-      "required": [
-        "name",
-        "age",
-      ],
-      "type": "object",
-    }
-  `);
+    });
+
+    type InferredType = AiSchemaInferType<typeof schema>;
+
+    typingTest.expectType<
+      TestTypeIsEqual<
+        InferredType,
+        { name: string; age: number; address: { street: string } }
+      >
+    >();
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "address": {
+            "properties": {
+              "street": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "street",
+            ],
+            "type": "object",
+          },
+          "age": {
+            "type": "number",
+          },
+          "name": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+          "age",
+          "address",
+        ],
+        "type": "object",
+      }
+    `);
+  });
 });
 
 describe('array schema', () => {
