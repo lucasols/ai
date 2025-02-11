@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import { jsonSchema } from 'ai';
 import type {
   JSONSchema7,
@@ -24,22 +26,34 @@ type Ctx = {
   defs: Record<string, JSONSchema7Definition>;
 };
 
-export type AiSchema<
-  T,
-  Flags extends {
-    enum?: true;
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  } = {},
-> = {
+type SchemaFlags = {
+  enum?: true;
+  obj?: true;
+};
+
+export type AiSchema<T, Flags extends SchemaFlags = {}> = {
   '~ai_type': Schema<T>;
   toJSONSchema: (ctx: Ctx) => JSONSchema7;
   describe: (description: string) => AiSchema<T, Flags>;
   orNull: () => AiSchema<T | null, Flags>;
   enum: Flags['enum'] extends true
-    ? <V extends T>(...values: V[]) => AiSchema<V, Flags>
+    ? <V extends T>(...values: V[]) => AiSchema<V>
     : undefined;
   asRef: (name: string) => AiSchema<T>;
-};
+  or: <V extends AiSchema<any, any>>(
+    schema: V,
+  ) => AiSchema<T | AiSchemaInferType<V>>;
+} & (Flags['obj'] extends true
+  ? T extends AnyObj
+    ? {
+        omit: <K extends keyof T>(...keys: K[]) => AiSchema<Omit<T, K>, Flags>;
+        pick: <K extends keyof T>(...keys: K[]) => AiSchema<Pick<T, K>, Flags>;
+        merge: <W extends AnyObj>(
+          object: AiSchema<W, any>,
+        ) => AiSchema<Prettify<Merge<T, W>>, Flags>;
+      }
+    : Record<'omit' | 'pick' | 'merge', undefined>
+  : Record<'omit' | 'pick' | 'merge', undefined>);
 
 type ObjectSchema = {
   [key: string]: AiSchema<any, any> | ObjectSchema;
@@ -55,9 +69,30 @@ type TypeOfObjectSchema<T extends ObjectSchema> = T extends ObjectSchema
     }
   : never;
 
+function objMergeMethod(
+  this: AiSchema<AnyObj, { obj: true }>,
+  mergeWith: AiSchema<AnyObj, any>,
+): AiSchema<AnyObj, { obj: true }> {
+  return merge(this, mergeWith) as any;
+}
+
+function objPickMethod(
+  this: AiSchema<AnyObj, { obj: true }>,
+  ...keys: string[]
+): AiSchema<Pick<AnyObj, (typeof keys)[number]>, { obj: true }> {
+  return pick(this, keys) as any;
+}
+
+function objOmitMethod(
+  this: AiSchema<AnyObj, { obj: true }>,
+  ...keys: string[]
+): AiSchema<Omit<AnyObj, (typeof keys)[number]>, { obj: true }> {
+  return omit(this, keys) as any;
+}
+
 function object<T extends ObjectSchema>(
   schema: T,
-): AiSchema<TypeOfObjectSchema<T>> {
+): AiSchema<TypeOfObjectSchema<T>, { obj: true }> {
   function childrenToJsonSchema(
     jSchema: AiSchema<any, any> | ObjectSchema,
     ctx: Ctx,
@@ -78,10 +113,128 @@ function object<T extends ObjectSchema>(
   }
 
   return {
-    ...genericSchema,
+    ...(genericSchema as any),
     enum: undefined,
     toJSONSchema: (ctx) => {
       return childrenToJsonSchema(schema, ctx);
+    },
+    merge: objMergeMethod,
+    pick: objPickMethod,
+    omit: objOmitMethod,
+  };
+}
+
+type AnyObj = Record<string, any>;
+
+export type Prettify<T> = T extends Record<string, any>
+  ? {
+      [K in keyof T]: Prettify<T[K]>;
+    }
+  : T;
+
+type Merge<T extends AnyObj, W extends AnyObj> = Omit<T, keyof W> & W;
+
+function merge<A extends AnyObj, B extends AnyObj>(
+  a: AiSchema<A, any>,
+  b: AiSchema<B, any>,
+): AiSchema<Prettify<Merge<A, B>>>;
+function merge<A extends AnyObj, B extends AnyObj, C extends AnyObj>(
+  a: AiSchema<A, any>,
+  b: AiSchema<B, any>,
+  c: AiSchema<C, any>,
+): AiSchema<Prettify<Merge<Merge<A, B>, C>>>;
+function merge<
+  A extends AnyObj,
+  B extends AnyObj,
+  C extends AnyObj,
+  D extends AnyObj,
+>(
+  a: AiSchema<A, any>,
+  b: AiSchema<B, any>,
+  c: AiSchema<C, any>,
+  d: AiSchema<D, any>,
+): AiSchema<Prettify<Merge<Merge<Merge<A, B>, C>, D>>>;
+function merge(...schemas: AiSchema<AnyObj, any>[]): AiSchema<AnyObj> {
+  return {
+    ...genericSchema,
+    enum: undefined,
+    toJSONSchema: (ctx) => {
+      const finalSchemaProperties: Record<string, JSONSchema7> = {};
+      const finalSchemaRequired: string[] = [];
+
+      for (const schema of schemas) {
+        const schemaJson = schema.toJSONSchema(ctx);
+
+        if (schemaJson.type === 'object') {
+          Object.assign(finalSchemaProperties, schemaJson.properties);
+
+          finalSchemaRequired.push(...(schemaJson.required ?? []));
+        } else {
+          throw new Error('Merge only accepts object schemas');
+        }
+      }
+
+      return {
+        type: 'object',
+        properties: finalSchemaProperties,
+        required: finalSchemaRequired,
+      };
+    },
+  };
+}
+
+function pick<T extends AnyObj, K extends keyof T>(
+  schema: AiSchema<T, any>,
+  keys: K[],
+): AiSchema<Pick<T, K>> {
+  return {
+    ...genericSchema,
+    enum: undefined,
+    toJSONSchema: (ctx) => {
+      const schemaJson = schema.toJSONSchema(ctx);
+
+      const properties: Record<string, JSONSchema7> = {};
+      const required: string[] = [];
+
+      for (const key of keys) {
+        const prop = schemaJson.properties?.[key as string];
+
+        if (prop && prop !== true) {
+          properties[key as string] = prop;
+          required.push(key as string);
+        }
+      }
+
+      return { type: 'object', properties, required };
+    },
+  };
+}
+
+function omit<T extends AnyObj, K extends keyof T>(
+  schema: AiSchema<T, any>,
+  keys: K[],
+): AiSchema<Omit<T, K>> {
+  return {
+    ...genericSchema,
+    enum: undefined,
+    toJSONSchema: (ctx) => {
+      const schemaJson = schema.toJSONSchema(ctx);
+
+      if (!schemaJson.properties) {
+        return { type: 'object', properties: {}, required: [] };
+      }
+
+      const properties: Record<string, JSONSchema7> = {};
+      const required: string[] = [];
+
+      for (const [key, prop] of Object.entries(schemaJson.properties)) {
+        if (prop && prop !== true && !keys.includes(key as K)) {
+          properties[key] = prop;
+          required.push(key);
+        }
+      }
+
+      return { type: 'object', properties, required };
     },
   };
 }
@@ -141,7 +294,6 @@ function enumSchema<T extends string | number | boolean | null>(
 
       return {
         ...schema,
-        type: schema.type,
         enum: values,
       };
     },
@@ -161,14 +313,22 @@ function asRef(this: AiSchema<any>, name: string): AiSchema<any> {
   };
 }
 
-const genericSchema: Omit<
-  AiSchema<any, any>,
-  'toJSONSchema' | 'name' | 'enum'
-> = {
+function or<T extends AiSchema<any, any>>(
+  this: AiSchema<any, any>,
+  schema: T,
+): AiSchema<any, any> {
+  return union(this, schema);
+}
+
+const genericSchema = {
   '~ai_type': undefined as any,
-  describe,
-  orNull,
+  describe: describe as any,
+  orNull: orNull as any,
   asRef,
+  omit: undefined,
+  pick: undefined,
+  merge: undefined,
+  or: or as any,
 };
 
 const string: AiSchema<string, { enum: true }> = {
@@ -207,10 +367,49 @@ function union<T extends AiSchema<any, any>[]>(
   return {
     ...genericSchema,
     enum: undefined,
-    toJSONSchema: (ctx) => ({
-      anyOf: schemas.map((schema) => schema.toJSONSchema(ctx)),
-    }),
+    toJSONSchema: (ctx) => {
+      const anyOf = schemas.map((schema) => schema.toJSONSchema(ctx));
+
+      const canSimplifySchema = anyOf.every(
+        (schema) =>
+          !schema.description &&
+          !schema.anyOf &&
+          !schema.enum &&
+          isUnionSimplifiableSchema(schema.type),
+      );
+
+      if (canSimplifySchema) {
+        return {
+          type: anyOf.flatMap((schema) =>
+            Array.isArray(schema.type)
+              ? schema.type.map((type) => type)
+              : (schema.type as JSONSchema7TypeName),
+          ),
+        };
+      }
+
+      return {
+        anyOf,
+      };
+    },
   };
+}
+
+function isUnionSimplifiableSchema(
+  schemaType: JSONSchema7TypeName | JSONSchema7TypeName[] | undefined,
+): unknown {
+  if (!schemaType) {
+    return false;
+  }
+
+  return (
+    schemaType === 'string' ||
+    schemaType === 'number' ||
+    schemaType === 'boolean' ||
+    schemaType === 'integer' ||
+    schemaType === 'null' ||
+    (Array.isArray(schemaType) && schemaType.every(isUnionSimplifiableSchema))
+  );
 }
 
 function primitiveUnion<T extends PrimitiveTypes[]>(
@@ -303,8 +502,8 @@ function ref<T>(name: string): AiSchema<T> {
 
 function recursion<T>(
   name: string,
-  self: (self: AiSchema<T>) => AiSchema<T>,
-): AiSchema<T> {
+  self: (self: AiSchema<T>) => AiSchema<T, any>,
+): AiSchema<T, {}> {
   return {
     ...genericSchema,
     enum: undefined,
@@ -327,9 +526,12 @@ export const aiSchemas = {
   number,
   boolean,
   getSchema,
+  merge,
   recursion,
   null: nullSchema,
   ref,
+  pick,
+  omit,
   union,
   primitiveUnion,
   integer,

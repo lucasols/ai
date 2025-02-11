@@ -162,6 +162,236 @@ describe('object schema', () => {
       }
     `);
   });
+
+  test('object merge', () => {
+    const schema = s.object({
+      name: s.string,
+      age: s.number,
+    });
+
+    const schema2 = s.object({
+      phone: s.string,
+      address: s.object({
+        street: s.string,
+      }),
+    });
+
+    const mergedSchema = s.merge(schema, schema2);
+
+    type InferredType = AiSchemaInferType<typeof mergedSchema>;
+
+    typingTest.expectType<
+      TestTypeIsEqual<
+        InferredType,
+        {
+          name: string;
+          age: number;
+          phone: string;
+          address: { street: string };
+        }
+      >
+    >();
+
+    expect(s.getSchema(mergedSchema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "address": {
+            "properties": {
+              "street": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "street",
+            ],
+            "type": "object",
+          },
+          "age": {
+            "type": "number",
+          },
+          "name": {
+            "type": "string",
+          },
+          "phone": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+          "age",
+          "phone",
+          "address",
+        ],
+        "type": "object",
+      }
+    `);
+  });
+
+  test('object pick', () => {
+    const schema = s.object({
+      name: s.string,
+      age: s.number,
+      phone: s.string,
+    });
+
+    const pickedSchema = s.pick(schema, ['name', 'phone']);
+
+    type InferredType = AiSchemaInferType<typeof pickedSchema>;
+
+    typingTest.expectType<
+      TestTypeIsEqual<InferredType, { name: string; phone: string }>
+    >();
+
+    expect(s.getSchema(pickedSchema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "name": {
+            "type": "string",
+          },
+          "phone": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+          "phone",
+        ],
+        "type": "object",
+      }
+    `);
+  });
+
+  test('object omit', () => {
+    const schema = s.object({
+      name: s.string,
+      age: s.number,
+      phone: s.string,
+    });
+
+    const omittedSchema = s.omit(schema, ['age']);
+
+    type InferredType = AiSchemaInferType<typeof omittedSchema>;
+
+    typingTest.expectType<
+      TestTypeIsEqual<InferredType, { name: string; phone: string }>
+    >();
+
+    expect(s.getSchema(omittedSchema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "name": {
+            "type": "string",
+          },
+          "phone": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+          "phone",
+        ],
+        "type": "object",
+      }
+    `);
+  });
+
+  test('object.merge()', () => {
+    const merge = s
+      .object({
+        name: s.string,
+        age: s.number,
+      })
+      .merge(
+        s.object({
+          phone: s.string,
+        }),
+      );
+
+    type InferredType = AiSchemaInferType<typeof merge>;
+
+    typingTest.expectType<
+      TestTypeIsEqual<
+        InferredType,
+        { name: string; age: number; phone: string }
+      >
+    >();
+
+    expect(s.getSchema(merge).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "age": {
+            "type": "number",
+          },
+          "name": {
+            "type": "string",
+          },
+          "phone": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+          "age",
+          "phone",
+        ],
+        "type": "object",
+      }
+    `);
+  });
+
+  test('object.pick()', () => {
+    const schema = s
+      .object({
+        name: s.string,
+        age: s.number,
+      })
+      .pick('name');
+
+    type InferredType = AiSchemaInferType<typeof schema>;
+
+    typingTest.expectType<TestTypeIsEqual<InferredType, { name: string }>>();
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "name": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+        ],
+        "type": "object",
+      }
+    `);
+  });
+
+  test('object.omit()', () => {
+    const schema = s
+      .object({
+        name: s.string,
+        age: s.number,
+      })
+      .omit('age');
+
+    type InferredType = AiSchemaInferType<typeof schema>;
+
+    typingTest.expectType<TestTypeIsEqual<InferredType, { name: string }>>();
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "properties": {
+          "name": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+        ],
+        "type": "object",
+      }
+    `);
+  });
 });
 
 describe('array schema', () => {
@@ -214,25 +444,66 @@ describe('array schema', () => {
   });
 });
 
-test('union schema', () => {
-  const schema = s.union(s.string, s.number);
+describe('union schema', () => {
+  test('simplify union of primitives', () => {
+    const schema = s.union(s.string, s.number);
 
-  type InferredType = AiSchemaInferType<typeof schema>;
+    type InferredType = AiSchemaInferType<typeof schema>;
 
-  typingTest.expectType<TestTypeIsEqual<InferredType, string | number>>();
+    typingTest.expectType<TestTypeIsEqual<InferredType, string | number>>();
 
-  expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
-    {
-      "anyOf": [
-        {
-          "type": "string",
-        },
-        {
-          "type": "number",
-        },
-      ],
-    }
-  `);
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "type": [
+          "string",
+          "number",
+        ],
+      }
+    `);
+  });
+
+  test('schema with description are not simplified', () => {
+    const schema = s.union(s.string, s.number.describe('Number schema'));
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "anyOf": [
+          {
+            "type": "string",
+          },
+          {
+            "description": "Number schema",
+            "type": "number",
+          },
+        ],
+      }
+    `);
+  });
+
+  test('non-simplifiable union', () => {
+    const schema = s.union(s.string, s.object({ name: s.string }));
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "anyOf": [
+          {
+            "type": "string",
+          },
+          {
+            "properties": {
+              "name": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "name",
+            ],
+            "type": "object",
+          },
+        ],
+      }
+    `);
+  });
 });
 
 describe('primitive union schema', () => {
@@ -304,7 +575,68 @@ test('.describe()', () => {
   );
 });
 
-describe('orNull schema', () => {
+describe('.or() schema', () => {
+  test('return the correct schema', () => {
+    const schema = s.string.or(s.number);
+
+    typingTest.expectType<
+      TestTypeIsEqual<AiSchemaInferType<typeof schema>, string | number>
+    >();
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "type": [
+          "string",
+          "number",
+        ],
+      }
+    `);
+  });
+
+  test('multiple chained or()', () => {
+    const schema = s.string.or(s.number).or(s.boolean);
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+        ],
+      }
+    `);
+  });
+
+  test('or() with object', () => {
+    const schema = s.string.or(s.number).or(s.object({ name: s.string }));
+
+    expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
+      {
+        "anyOf": [
+          {
+            "type": [
+              "string",
+              "number",
+            ],
+          },
+          {
+            "properties": {
+              "name": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "name",
+            ],
+            "type": "object",
+          },
+        ],
+      }
+    `);
+  });
+});
+
+describe('.orNull() schema', () => {
   test('return the correct schema', () => {
     const object = s.object({
       number: s.number.orNull(),
@@ -496,50 +828,46 @@ test('nested and complex schema', () => {
   >();
 
   expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
-      {
-        "properties": {
-          "details": {
-            "description": "details object",
-            "properties": {
-              "flag": {
-                "description": "nullable boolean",
-                "type": [
-                  "boolean",
-                  "null",
-                ],
-              },
-              "value": {
-                "type": "number",
-              },
-            },
-            "required": [
-              "flag",
-              "value",
-            ],
-            "type": "object",
-          },
-          "list": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string",
-                },
-                {
-                  "type": "number",
-                },
+    {
+      "properties": {
+        "details": {
+          "description": "details object",
+          "properties": {
+            "flag": {
+              "description": "nullable boolean",
+              "type": [
+                "boolean",
+                "null",
               ],
-              "description": "string or number",
             },
-            "type": "array",
+            "value": {
+              "type": "number",
+            },
           },
+          "required": [
+            "flag",
+            "value",
+          ],
+          "type": "object",
         },
-        "required": [
-          "list",
-          "details",
-        ],
-        "type": "object",
-      }
-    `);
+        "list": {
+          "items": {
+            "description": "string or number",
+            "type": [
+              "string",
+              "number",
+            ],
+          },
+          "type": "array",
+        },
+      },
+      "required": [
+        "list",
+        "details",
+      ],
+      "type": "object",
+    }
+  `);
 });
 
 test('array schema with description', () => {
