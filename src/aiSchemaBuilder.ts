@@ -1,5 +1,5 @@
 import { jsonSchema } from 'ai';
-import type { JSONSchema7 } from 'json-schema';
+import type { JSONSchema7, JSONSchema7TypeName } from 'json-schema';
 
 type Schema<T> = (t: T) => T;
 
@@ -79,11 +79,21 @@ function orNull(this: AiSchema<any>): AiSchema<any> {
     toJSONSchema: () => {
       const schema = this.toJSONSchema();
 
+      const uniqueTypes = new Set<JSONSchema7TypeName>();
+
+      if (Array.isArray(schema.type)) {
+        for (const type of schema.type) {
+          uniqueTypes.add(type);
+        }
+      } else {
+        uniqueTypes.add(schema.type!);
+      }
+
+      uniqueTypes.add('null');
+
       return {
         ...schema,
-        type: Array.isArray(schema.type)
-          ? [...schema.type, 'null']
-          : [schema.type!, 'null'],
+        type: Array.from(uniqueTypes),
       };
     },
   };
@@ -95,7 +105,15 @@ function enumSchema<T extends string | number | boolean | null>(
 ): AiSchema<T> {
   return {
     ...this,
-    toJSONSchema: () => ({ type: 'string', enum: values }),
+    toJSONSchema: () => {
+      const schema = this.toJSONSchema();
+
+      return {
+        ...schema,
+        type: schema.type,
+        enum: values,
+      };
+    },
   };
 }
 

@@ -515,7 +515,7 @@ describe('Additional tests', () => {
           2,
           3,
         ],
-        "type": "string",
+        "type": "number",
       }
     `);
   });
@@ -526,7 +526,6 @@ describe('Additional tests', () => {
       {
         "type": [
           "string",
-          "null",
           "null",
         ],
       }
@@ -572,7 +571,7 @@ describe('Additional tests', () => {
               2,
               3,
             ],
-            "type": "string",
+            "type": "number",
           },
         ],
       }
