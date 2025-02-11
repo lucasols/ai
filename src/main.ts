@@ -1,1 +1,6 @@
-export { aiSchemas as openaiSchema, type AiSchema } from './aiSchemaBuilder';
+export {
+  aiSchemas,
+  type AiSchema,
+  type AiSchemaInferType,
+  type AiSdkInferType,
+} from './aiSchemaBuilder';
