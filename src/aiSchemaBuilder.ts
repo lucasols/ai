@@ -181,6 +181,7 @@ function merge(...schemas: AiSchema<AnyObj, any>[]): AiSchema<AnyObj> {
         type: 'object',
         properties: finalSchemaProperties,
         required: finalSchemaRequired,
+        additionalProperties: false,
       };
     },
   };
@@ -208,7 +209,12 @@ function pick<T extends AnyObj, K extends keyof T>(
         }
       }
 
-      return { type: 'object', properties, required };
+      return {
+        type: 'object',
+        properties,
+        required,
+        additionalProperties: false,
+      };
     },
   };
 }
@@ -237,7 +243,12 @@ function omit<T extends AnyObj, K extends keyof T>(
         }
       }
 
-      return { type: 'object', properties, required };
+      return {
+        type: 'object',
+        properties,
+        required,
+        additionalProperties: false,
+      };
     },
   };
 }

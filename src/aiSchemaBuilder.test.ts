@@ -197,6 +197,7 @@ describe('object schema', () => {
 
     expect(s.getSchema(mergedSchema).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "address": {
             "additionalProperties": false,
@@ -248,6 +249,7 @@ describe('object schema', () => {
 
     expect(s.getSchema(pickedSchema).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -282,6 +284,7 @@ describe('object schema', () => {
 
     expect(s.getSchema(omittedSchema).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -322,6 +325,7 @@ describe('object schema', () => {
 
     expect(s.getSchema(merge).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "age": {
             "type": "number",
@@ -357,6 +361,7 @@ describe('object schema', () => {
 
     expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
@@ -384,6 +389,7 @@ describe('object schema', () => {
 
     expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string",
