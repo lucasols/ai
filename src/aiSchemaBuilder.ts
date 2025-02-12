@@ -1,19 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-import { jsonSchema } from 'ai';
+import { type Schema, jsonSchema } from 'ai';
 import type {
   JSONSchema7,
   JSONSchema7Definition,
   JSONSchema7TypeName,
 } from 'json-schema';
 
-type Schema<T> = (t: T) => T;
-
-type AiSdkSchema<T> = ReturnType<typeof jsonSchema<T>>;
-
-export type AiSdkInferType<T extends AiSdkSchema<any>> = T extends AiSdkSchema<
-  infer U
->
+export type AiSdkInferType<T extends Schema<any>> = T extends Schema<infer U>
   ? U
   : never;
 
@@ -31,8 +25,12 @@ type SchemaFlags = {
   obj?: true;
 };
 
-export type AiSchema<T, Flags extends SchemaFlags = {}> = {
-  '~ai_type': Schema<T>;
+type SchemaType<T> = (t: T) => T;
+
+export type ExternalAiSchema<T> = AiSchema<T, any>;
+
+type AiSchema<T, Flags extends SchemaFlags = {}> = {
+  '~ai_type': SchemaType<T>;
   toJSONSchema: (ctx: Ctx) => JSONSchema7;
   describe: (description: string) => AiSchema<T, Flags>;
   orNull: () => AiSchema<T | null, Flags>;
@@ -447,7 +445,7 @@ export function getSchema<
   T extends AiSchema<any, any> | Record<string, AiSchema<any, any>>,
 >(
   schema: T,
-): AiSdkSchema<
+): Schema<
   T extends AiSchema<any, any>
     ? AiSchemaInferType<T>
     : T extends Record<string, AiSchema<any, any>>
