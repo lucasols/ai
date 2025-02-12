@@ -107,7 +107,12 @@ function object<T extends ObjectSchema>(
       required.push(key);
     }
 
-    return { type: 'object', properties, required };
+    return {
+      type: 'object',
+      properties,
+      required,
+      additionalProperties: false,
+    };
   }
 
   return {

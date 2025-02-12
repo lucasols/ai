@@ -97,6 +97,7 @@ describe('object schema', () => {
 
     expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "age": {
             "type": "number",
@@ -134,8 +135,10 @@ describe('object schema', () => {
 
     expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "address": {
+            "additionalProperties": false,
             "properties": {
               "street": {
                 "type": "string",
@@ -196,6 +199,7 @@ describe('object schema', () => {
       {
         "properties": {
           "address": {
+            "additionalProperties": false,
             "properties": {
               "street": {
                 "type": "string",
@@ -424,6 +428,7 @@ describe('array schema', () => {
     expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
       {
         "items": {
+          "additionalProperties": false,
           "properties": {
             "age": {
               "type": "number",
@@ -490,6 +495,7 @@ describe('union schema', () => {
             "type": "string",
           },
           {
+            "additionalProperties": false,
             "properties": {
               "name": {
                 "type": "string",
@@ -620,6 +626,7 @@ describe('.or() schema', () => {
             ],
           },
           {
+            "additionalProperties": false,
             "properties": {
               "name": {
                 "type": "string",
@@ -665,6 +672,7 @@ describe('.orNull() schema', () => {
 
     expect(s.getSchema(object).jsonSchema).toMatchInlineSnapshot(`
       {
+        "additionalProperties": false,
         "properties": {
           "boolean": {
             "type": [
@@ -679,6 +687,7 @@ describe('.orNull() schema', () => {
             ],
           },
           "null": {
+            "additionalProperties": false,
             "properties": {
               "name": {
                 "type": "string",
@@ -829,8 +838,10 @@ test('nested and complex schema', () => {
 
   expect(s.getSchema(schema).jsonSchema).toMatchInlineSnapshot(`
     {
+      "additionalProperties": false,
       "properties": {
         "details": {
+          "additionalProperties": false,
           "description": "details object",
           "properties": {
             "flag": {
@@ -976,35 +987,37 @@ test('recursive schema', () => {
   >();
 
   expect(s.getSchema(linkedList).jsonSchema).toMatchInlineSnapshot(`
-      {
-        "$defs": {
-          "LinkedListNode": {
-            "properties": {
-              "next": {
-                "$ref": "#/$defs/LinkedListNode",
-              },
-              "value": {
-                "type": "number",
-              },
+    {
+      "$defs": {
+        "LinkedListNode": {
+          "additionalProperties": false,
+          "properties": {
+            "next": {
+              "$ref": "#/$defs/LinkedListNode",
             },
-            "required": [
-              "value",
-              "next",
-            ],
-            "type": "object",
+            "value": {
+              "type": "number",
+            },
           },
+          "required": [
+            "value",
+            "next",
+          ],
+          "type": "object",
         },
-        "properties": {
-          "linkedList": {
-            "$ref": "#/$defs/LinkedListNode",
-          },
+      },
+      "additionalProperties": false,
+      "properties": {
+        "linkedList": {
+          "$ref": "#/$defs/LinkedListNode",
         },
-        "required": [
-          "linkedList",
-        ],
-        "type": "object",
-      }
-    `);
+      },
+      "required": [
+        "linkedList",
+      ],
+      "type": "object",
+    }
+  `);
 });
 
 test('as ref', () => {
@@ -1024,6 +1037,7 @@ test('as ref', () => {
     {
       "$defs": {
         "Object": {
+          "additionalProperties": false,
           "description": "Object schema",
           "properties": {
             "name": {
@@ -1036,6 +1050,7 @@ test('as ref', () => {
           "type": "object",
         },
       },
+      "additionalProperties": false,
       "properties": {
         "obj": {
           "$ref": "#/$defs/Object",
