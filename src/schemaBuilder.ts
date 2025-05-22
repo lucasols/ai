@@ -7,9 +7,8 @@ import type {
   JSONSchema7TypeName,
 } from 'json-schema';
 
-export type AiSdkInferType<T extends Schema<any>> = T extends Schema<infer U>
-  ? U
-  : never;
+export type AiSdkInferType<T extends Schema<any>> =
+  T extends Schema<infer U> ? U : never;
 
 export type AiSchemaInferType<T extends AiSchema<any, any>> =
   T extends AiSchema<infer U, any> ? U : never;
@@ -34,36 +33,35 @@ type AiSchema<T, Flags extends SchemaFlags = {}> = {
   toJSONSchema: (ctx: Ctx) => JSONSchema7;
   describe: (description: string) => AiSchema<T, Flags>;
   orNull: () => AiSchema<T | null, Flags>;
-  enum: Flags['enum'] extends true
-    ? <V extends T>(...values: V[]) => AiSchema<V>
-    : undefined;
+  enum: Flags['enum'] extends true ?
+    <V extends T>(...values: V[]) => AiSchema<V>
+  : undefined;
   asRef: (name: string) => AiSchema<T>;
   or: <V extends AiSchema<any, any>>(
     schema: V,
   ) => AiSchema<T | AiSchemaInferType<V>>;
-} & (Flags['obj'] extends true
-  ? T extends AnyObj
-    ? {
-        omit: <K extends keyof T>(...keys: K[]) => AiSchema<Omit<T, K>, Flags>;
-        pick: <K extends keyof T>(...keys: K[]) => AiSchema<Pick<T, K>, Flags>;
-        merge: <W extends AnyObj>(
-          object: AiSchema<W, any>,
-        ) => AiSchema<Prettify<Merge<T, W>>, Flags>;
-      }
-    : Record<'omit' | 'pick' | 'merge', undefined>
-  : Record<'omit' | 'pick' | 'merge', undefined>);
+} & (Flags['obj'] extends true ?
+  T extends AnyObj ?
+    {
+      omit: <K extends keyof T>(...keys: K[]) => AiSchema<Omit<T, K>, Flags>;
+      pick: <K extends keyof T>(...keys: K[]) => AiSchema<Pick<T, K>, Flags>;
+      merge: <W extends AnyObj>(
+        object: AiSchema<W, any>,
+      ) => AiSchema<Prettify<Merge<T, W>>, Flags>;
+    }
+  : Record<'omit' | 'pick' | 'merge', undefined>
+: Record<'omit' | 'pick' | 'merge', undefined>);
 
 type ObjectSchema = {
   [key: string]: AiSchema<any, any> | ObjectSchema;
 };
 
-type TypeOfObjectSchema<T extends ObjectSchema> = T extends ObjectSchema
-  ? {
-      [K in keyof T]: T[K] extends AiSchema<infer U, any>
-        ? U
-        : T[K] extends ObjectSchema
-        ? TypeOfObjectSchema<T[K]>
-        : never;
+type TypeOfObjectSchema<T extends ObjectSchema> =
+  T extends ObjectSchema ?
+    {
+      [K in keyof T]: T[K] extends AiSchema<infer U, any> ? U
+      : T[K] extends ObjectSchema ? TypeOfObjectSchema<T[K]>
+      : never;
     }
   : never;
 
@@ -129,8 +127,9 @@ function object<T extends ObjectSchema>(
 
 type AnyObj = Record<string, any>;
 
-export type Prettify<T> = T extends Record<string, any>
-  ? {
+export type Prettify<T> =
+  T extends Record<string, any> ?
+    {
       [K in keyof T]: Prettify<T[K]>;
     }
   : T;
@@ -395,9 +394,9 @@ function union<T extends AiSchema<any, any>[]>(
       if (canSimplifySchema) {
         return {
           type: anyOf.flatMap((schema) =>
-            Array.isArray(schema.type)
-              ? schema.type.map((type) => type)
-              : (schema.type as JSONSchema7TypeName),
+            Array.isArray(schema.type) ?
+              schema.type.map((type) => type)
+            : (schema.type as JSONSchema7TypeName),
           ),
         };
       }
@@ -462,11 +461,10 @@ export function getSchema<
 >(
   schema: T,
 ): Schema<
-  T extends AiSchema<any, any>
-    ? AiSchemaInferType<T>
-    : T extends Record<string, AiSchema<any, any>>
-    ? { [K in keyof T]: AiSchemaInferType<T[K]> }
-    : never
+  T extends AiSchema<any, any> ? AiSchemaInferType<T>
+  : T extends Record<string, AiSchema<any, any>> ?
+    { [K in keyof T]: AiSchemaInferType<T[K]> }
+  : never
 > {
   const ctx: {
     defs: Record<string, JSONSchema7Definition>;
