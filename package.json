@@ -25,6 +25,14 @@
     ".": {
       "import": "./dist/main.mjs",
       "require": "./dist/main.js"
+    },
+    "./fileProcessing": {
+      "import": "./dist/arrayUtils.mjs",
+      "require": "./dist/arrayUtils.js"
+    },
+    "./schemaBuilder": {
+      "import": "./dist/schemaBuilder.mjs",
+      "require": "./dist/schemaBuilder.js"
     }
   },
   "engines": {

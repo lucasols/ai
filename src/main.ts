@@ -1,6 +1,3 @@
-export {
-  aiSchemas,
-  type ExternalAiSchema as AiSchema,
-  type AiSchemaInferType,
-  type AiSdkInferType,
-} from './aiSchemaBuilder';
+export const _doNotUseThis = () => {
+  throw new Error('do not use this file');
+};

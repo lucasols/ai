@@ -8,7 +8,7 @@ import {
   aiSchemas as s,
   type AiSchemaInferType,
   type AiSdkInferType,
-} from './aiSchemaBuilder';
+} from './schemaBuilder';
 
 describe('primitive schemas', () => {
   test('string schema', () => {
