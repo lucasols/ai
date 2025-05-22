@@ -27,8 +27,8 @@
       "require": "./dist/main.js"
     },
     "./fileProcessing": {
-      "import": "./dist/arrayUtils.mjs",
-      "require": "./dist/arrayUtils.js"
+      "import": "./dist/fileProcessing.mjs",
+      "require": "./dist/fileProcessing.js"
     },
     "./schemaBuilder": {
       "import": "./dist/schemaBuilder.mjs",
