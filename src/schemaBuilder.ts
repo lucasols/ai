@@ -10,8 +10,8 @@ import type {
 export type AiSdkInferType<T extends Schema<any>> =
   T extends Schema<infer U> ? U : never;
 
-export type AiSchemaInferType<T extends AiSchema<any, any>> =
-  T extends AiSchema<infer U, any> ? U : never;
+export type AiSchemaInferType<T extends InternalAiSchema<any, any>> =
+  T extends InternalAiSchema<infer U, any> ? U : never;
 
 type PrimitiveTypes = 'string' | 'number' | 'boolean' | 'integer' | 'null';
 
@@ -26,71 +26,75 @@ type SchemaFlags = {
 
 type SchemaType<T> = (t: T) => T;
 
-export type ExternalAiSchema<T> = AiSchema<T, any>;
+export type AiSchema<T> = InternalAiSchema<T, any>;
 
-export type AiSchema<T, Flags extends SchemaFlags = {}> = {
+type InternalAiSchema<T, Flags extends SchemaFlags = {}> = {
   '~ai_type': SchemaType<T>;
   toJSONSchema: (ctx: Ctx) => JSONSchema7;
-  describe: (description: string) => AiSchema<T, Flags>;
-  orNull: () => AiSchema<T | null, Flags>;
+  describe: (description: string) => InternalAiSchema<T, Flags>;
+  orNull: () => InternalAiSchema<T | null, Flags>;
   enum: Flags['enum'] extends true ?
-    <V extends T>(...values: V[]) => AiSchema<V>
+    <V extends T>(...values: V[]) => InternalAiSchema<V>
   : undefined;
-  asRef: (name: string) => AiSchema<T>;
-  or: <V extends AiSchema<any, any>>(
+  asRef: (name: string) => InternalAiSchema<T>;
+  or: <V extends InternalAiSchema<any, any>>(
     schema: V,
-  ) => AiSchema<T | AiSchemaInferType<V>>;
+  ) => InternalAiSchema<T | AiSchemaInferType<V>>;
 } & (Flags['obj'] extends true ?
   T extends AnyObj ?
     {
-      omit: <K extends keyof T>(...keys: K[]) => AiSchema<Omit<T, K>, Flags>;
-      pick: <K extends keyof T>(...keys: K[]) => AiSchema<Pick<T, K>, Flags>;
+      omit: <K extends keyof T>(
+        ...keys: K[]
+      ) => InternalAiSchema<Omit<T, K>, Flags>;
+      pick: <K extends keyof T>(
+        ...keys: K[]
+      ) => InternalAiSchema<Pick<T, K>, Flags>;
       merge: <W extends AnyObj>(
-        object: AiSchema<W, any>,
-      ) => AiSchema<Prettify<Merge<T, W>>, Flags>;
+        object: InternalAiSchema<W, any>,
+      ) => InternalAiSchema<Prettify<Merge<T, W>>, Flags>;
     }
   : Record<'omit' | 'pick' | 'merge', undefined>
 : Record<'omit' | 'pick' | 'merge', undefined>);
 
 type ObjectSchema = {
-  [key: string]: AiSchema<any, any> | ObjectSchema;
+  [key: string]: InternalAiSchema<any, any> | ObjectSchema;
 };
 
 type TypeOfObjectSchema<T extends ObjectSchema> =
   T extends ObjectSchema ?
     {
-      [K in keyof T]: T[K] extends AiSchema<infer U, any> ? U
+      [K in keyof T]: T[K] extends InternalAiSchema<infer U, any> ? U
       : T[K] extends ObjectSchema ? TypeOfObjectSchema<T[K]>
       : never;
     }
   : never;
 
 function objMergeMethod(
-  this: AiSchema<AnyObj, { obj: true }>,
-  mergeWith: AiSchema<AnyObj, any>,
-): AiSchema<AnyObj, { obj: true }> {
+  this: InternalAiSchema<AnyObj, { obj: true }>,
+  mergeWith: InternalAiSchema<AnyObj, any>,
+): InternalAiSchema<AnyObj, { obj: true }> {
   return merge(this, mergeWith) as any;
 }
 
 function objPickMethod(
-  this: AiSchema<AnyObj, { obj: true }>,
+  this: InternalAiSchema<AnyObj, { obj: true }>,
   ...keys: string[]
-): AiSchema<Pick<AnyObj, (typeof keys)[number]>, { obj: true }> {
+): InternalAiSchema<Pick<AnyObj, (typeof keys)[number]>, { obj: true }> {
   return pick(this, keys) as any;
 }
 
 function objOmitMethod(
-  this: AiSchema<AnyObj, { obj: true }>,
+  this: InternalAiSchema<AnyObj, { obj: true }>,
   ...keys: string[]
-): AiSchema<Omit<AnyObj, (typeof keys)[number]>, { obj: true }> {
+): InternalAiSchema<Omit<AnyObj, (typeof keys)[number]>, { obj: true }> {
   return omit(this, keys) as any;
 }
 
 function object<T extends ObjectSchema>(
   schema: T,
-): AiSchema<TypeOfObjectSchema<T>, { obj: true }> {
+): InternalAiSchema<TypeOfObjectSchema<T>, { obj: true }> {
   function childrenToJsonSchema(
-    jSchema: AiSchema<any, any> | ObjectSchema,
+    jSchema: InternalAiSchema<any, any> | ObjectSchema,
     ctx: Ctx,
   ): JSONSchema7 {
     if (isAiSchema(jSchema)) {
@@ -137,26 +141,28 @@ export type Prettify<T> =
 type Merge<T extends AnyObj, W extends AnyObj> = Omit<T, keyof W> & W;
 
 function merge<A extends AnyObj, B extends AnyObj>(
-  a: AiSchema<A, any>,
-  b: AiSchema<B, any>,
-): AiSchema<Prettify<Merge<A, B>>>;
+  a: InternalAiSchema<A, any>,
+  b: InternalAiSchema<B, any>,
+): InternalAiSchema<Prettify<Merge<A, B>>>;
 function merge<A extends AnyObj, B extends AnyObj, C extends AnyObj>(
-  a: AiSchema<A, any>,
-  b: AiSchema<B, any>,
-  c: AiSchema<C, any>,
-): AiSchema<Prettify<Merge<Merge<A, B>, C>>>;
+  a: InternalAiSchema<A, any>,
+  b: InternalAiSchema<B, any>,
+  c: InternalAiSchema<C, any>,
+): InternalAiSchema<Prettify<Merge<Merge<A, B>, C>>>;
 function merge<
   A extends AnyObj,
   B extends AnyObj,
   C extends AnyObj,
   D extends AnyObj,
 >(
-  a: AiSchema<A, any>,
-  b: AiSchema<B, any>,
-  c: AiSchema<C, any>,
-  d: AiSchema<D, any>,
-): AiSchema<Prettify<Merge<Merge<Merge<A, B>, C>, D>>>;
-function merge(...schemas: AiSchema<AnyObj, any>[]): AiSchema<AnyObj> {
+  a: InternalAiSchema<A, any>,
+  b: InternalAiSchema<B, any>,
+  c: InternalAiSchema<C, any>,
+  d: InternalAiSchema<D, any>,
+): InternalAiSchema<Prettify<Merge<Merge<Merge<A, B>, C>, D>>>;
+function merge(
+  ...schemas: InternalAiSchema<AnyObj, any>[]
+): InternalAiSchema<AnyObj> {
   return {
     ...genericSchema,
     enum: undefined,
@@ -187,9 +193,9 @@ function merge(...schemas: AiSchema<AnyObj, any>[]): AiSchema<AnyObj> {
 }
 
 function pick<T extends AnyObj, K extends keyof T>(
-  schema: AiSchema<T, any>,
+  schema: InternalAiSchema<T, any>,
   keys: K[],
-): AiSchema<Pick<T, K>> {
+): InternalAiSchema<Pick<T, K>> {
   return {
     ...genericSchema,
     enum: undefined,
@@ -219,9 +225,9 @@ function pick<T extends AnyObj, K extends keyof T>(
 }
 
 function omit<T extends AnyObj, K extends keyof T>(
-  schema: AiSchema<T, any>,
+  schema: InternalAiSchema<T, any>,
   keys: K[],
-): AiSchema<Omit<T, K>> {
+): InternalAiSchema<Omit<T, K>> {
   return {
     ...genericSchema,
     enum: undefined,
@@ -252,7 +258,7 @@ function omit<T extends AnyObj, K extends keyof T>(
   };
 }
 
-function array<T>(schema: AiSchema<T, any>): AiSchema<T[]> {
+function array<T>(schema: InternalAiSchema<T, any>): InternalAiSchema<T[]> {
   return {
     ...genericSchema,
     enum: undefined,
@@ -261,16 +267,16 @@ function array<T>(schema: AiSchema<T, any>): AiSchema<T[]> {
 }
 
 function describe(
-  this: AiSchema<any, any>,
+  this: InternalAiSchema<any, any>,
   description: string,
-): AiSchema<any, any> {
+): InternalAiSchema<any, any> {
   return {
     ...this,
     toJSONSchema: (ctx) => ({ ...this.toJSONSchema(ctx), description }),
   };
 }
 
-function orNull(this: AiSchema<any>): AiSchema<any> {
+function orNull(this: InternalAiSchema<any>): InternalAiSchema<any> {
   return {
     ...this,
     toJSONSchema: (ctx) => {
@@ -297,9 +303,9 @@ function orNull(this: AiSchema<any>): AiSchema<any> {
 }
 
 function enumSchema<T extends string | number | boolean | null>(
-  this: AiSchema<T>,
+  this: InternalAiSchema<T>,
   ...values: T[]
-): AiSchema<T> {
+): InternalAiSchema<T> {
   return {
     ...this,
     toJSONSchema: (ctx) => {
@@ -313,7 +319,10 @@ function enumSchema<T extends string | number | boolean | null>(
   };
 }
 
-function asRef(this: AiSchema<any>, name: string): AiSchema<any> {
+function asRef(
+  this: InternalAiSchema<any>,
+  name: string,
+): InternalAiSchema<any> {
   return {
     ...this,
     toJSONSchema: (ctx) => {
@@ -326,10 +335,10 @@ function asRef(this: AiSchema<any>, name: string): AiSchema<any> {
   };
 }
 
-function or<T extends AiSchema<any, any>>(
-  this: AiSchema<any, any>,
+function or<T extends InternalAiSchema<any, any>>(
+  this: InternalAiSchema<any, any>,
   schema: T,
-): AiSchema<any, any> {
+): InternalAiSchema<any, any> {
   return union(this, schema);
 }
 
@@ -344,39 +353,39 @@ const genericSchema = {
   or: or as any,
 };
 
-const string: AiSchema<string, { enum: true }> = {
+const string: InternalAiSchema<string, { enum: true }> = {
   ...genericSchema,
   enum: enumSchema,
   toJSONSchema: () => ({ type: 'string' }),
 };
 
-const number: AiSchema<number, { enum: true }> = {
+const number: InternalAiSchema<number, { enum: true }> = {
   ...genericSchema,
   enum: enumSchema,
   toJSONSchema: () => ({ type: 'number' }),
 };
 
-const boolean: AiSchema<boolean, { enum: true }> = {
+const boolean: InternalAiSchema<boolean, { enum: true }> = {
   ...genericSchema,
   enum: enumSchema,
   toJSONSchema: () => ({ type: 'boolean' }),
 };
 
-const integer: AiSchema<number, { enum: true }> = {
+const integer: InternalAiSchema<number, { enum: true }> = {
   ...genericSchema,
   enum: enumSchema,
   toJSONSchema: () => ({ type: 'integer' }),
 };
 
-const nullSchema: AiSchema<null> = {
+const nullSchema: InternalAiSchema<null> = {
   ...genericSchema,
   enum: undefined,
   toJSONSchema: () => ({ type: 'null' }),
 };
 
-function union<T extends AiSchema<any, any>[]>(
+function union<T extends InternalAiSchema<any, any>[]>(
   ...schemas: T
-): AiSchema<AiSchemaInferType<T[number]>> {
+): InternalAiSchema<AiSchemaInferType<T[number]>> {
   return {
     ...genericSchema,
     enum: undefined,
@@ -427,7 +436,7 @@ function isUnionSimplifiableSchema(
 
 function primitiveUnion<T extends PrimitiveTypes[]>(
   ...schemas: T
-): AiSchema<
+): InternalAiSchema<
   {
     string: string;
     number: number;
@@ -448,7 +457,7 @@ function primitiveUnion<T extends PrimitiveTypes[]>(
   };
 }
 
-function isAiSchema(schema: unknown): schema is AiSchema<any, any> {
+function isAiSchema(schema: unknown): schema is InternalAiSchema<any, any> {
   return !!schema && typeof schema === 'object' && '~ai_type' in schema;
 }
 
@@ -457,12 +466,14 @@ function objectIsEmpty(obj: Record<string, unknown>): boolean {
 }
 
 export function getSchema<
-  T extends AiSchema<any, any> | Record<string, AiSchema<any, any>>,
+  T extends
+    | InternalAiSchema<any, any>
+    | Record<string, InternalAiSchema<any, any>>,
 >(
   schema: T,
 ): Schema<
-  T extends AiSchema<any, any> ? AiSchemaInferType<T>
-  : T extends Record<string, AiSchema<any, any>> ?
+  T extends InternalAiSchema<any, any> ? AiSchemaInferType<T>
+  : T extends Record<string, InternalAiSchema<any, any>> ?
     { [K in keyof T]: AiSchemaInferType<T[K]> }
   : never
 > {
@@ -486,7 +497,7 @@ export function getSchema<
   const required: string[] = [];
 
   for (const [key, value] of Object.entries(schema)) {
-    properties[key] = (value as AiSchema<any, any>).toJSONSchema(ctx);
+    properties[key] = (value as InternalAiSchema<any, any>).toJSONSchema(ctx);
     required.push(key);
   }
 
@@ -504,7 +515,7 @@ export function getSchema<
   return jsonSchema(generatedSchema);
 }
 
-function ref<T>(name: string): AiSchema<T> {
+function ref<T>(name: string): InternalAiSchema<T> {
   return {
     ...genericSchema,
     enum: undefined,
@@ -514,8 +525,8 @@ function ref<T>(name: string): AiSchema<T> {
 
 function recursion<T>(
   name: string,
-  self: (self: AiSchema<T>) => AiSchema<T, any>,
-): AiSchema<T, {}> {
+  self: (self: InternalAiSchema<T>) => InternalAiSchema<T, any>,
+): InternalAiSchema<T, {}> {
   return {
     ...genericSchema,
     enum: undefined,
