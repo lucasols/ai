@@ -28,7 +28,7 @@ type SchemaType<T> = (t: T) => T;
 
 export type ExternalAiSchema<T> = AiSchema<T, any>;
 
-type AiSchema<T, Flags extends SchemaFlags = {}> = {
+export type AiSchema<T, Flags extends SchemaFlags = {}> = {
   '~ai_type': SchemaType<T>;
   toJSONSchema: (ctx: Ctx) => JSONSchema7;
   describe: (description: string) => AiSchema<T, Flags>;
